@@ -1,2 +1,2 @@
 all:
-	gcc -Isrc/include -Lsrc/lib -o main main.c array.c -lmingw32 -lSDL3
+	gcc -Isrc/include -Lsrc/lib -o Tetris main.c array.c icon.o -lmingw32 -lSDL3

@@ -1,11 +1,22 @@
+#define MINIAUDIO_IMPLEMENTATION
+#include <miniaudio.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
-#include "array.h"
+#include <array.h>
 #include <SDL3/SDL.h>
-#include "classes.h"
-#include "text.h"
+#include <classes.h>
+#include <text.h>
+
+typedef enum {
+    STATE_START,
+    STATE_PLAYING,
+    STATE_PAUSED,
+    STATE_GAME_OVER
+}GameState;
+
+static GameState g_state = STATE_START;
 
 // functions
 void init();
@@ -19,8 +30,20 @@ void rotate_clockwise(Face* face);
 void rotate_counter_clockwise(Face* face);
 void render_board(SDL_Renderer* renderer);
 void render_active_face(SDL_Renderer* renderer);
+void render_UI(SDL_Renderer* renderer);
 int can_move(int drow, int dcol);
 int bottom_colliding();
+int start(SDL_Renderer* renderer);
+int pause(SDL_Renderer* renderer);
+char* get_current_time();
+char* intToStr(int n);
+void draw_text(SDL_Renderer* renderer, const char* string, int x, int y, Color cl, int scale);
+void restart(SDL_Renderer* renderer);
+int game_over(SDL_Renderer* renderer);
+void render_game_over(SDL_Renderer* renderer);
+void render_start(SDL_Renderer* renderer);
+void render_paused(SDL_Renderer* renderer);
+void render_playing(SDL_Renderer* renderer);
 
 #define MAX16_INT 65535
 
@@ -31,12 +54,12 @@ int bottom_colliding();
 
 uint16_t board[BOARD_HEIGHT] = {0};
 
-Face* faces;
-int total_faces;
+uint64_t score = 0;
+char* score_str = NULL;
 
 Face* active_face;
 
-uint8_t* font_table[128] = {
+uint8_t* font_table[138] = {
     ['A'] = font_A,
     ['B'] = font_B,
     ['C'] = font_C,
@@ -75,6 +98,17 @@ uint8_t* font_table[128] = {
     ['8'] = font_8,
     ['9'] = font_9,
 
+    [30] = font_0,
+    [31] = font_1,
+    [32] = font_2,
+    [33] = font_3,
+    [34] = font_4,
+    [35] = font_5,
+    [36] = font_6,
+    [37] = font_7,
+    [38] = font_8,
+    [39] = font_9,
+
     ['!'] = font_exclamation,
     ['?'] = font_question,
     ['.'] = font_period,
@@ -86,6 +120,150 @@ uint8_t* font_table[128] = {
     [':'] = font_colon,
     [' '] = font_space
 };
+
+void render_game_over(SDL_Renderer* renderer){
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+    SDL_RenderClear(renderer);
+
+    // 3. Render
+    render_board(renderer);
+    render_active_face(renderer);
+    render_UI(renderer);
+    Color color = {255,0,0};
+    int scale = 4;
+    int x = 20+(BOARD_WIDTH/2)*CELL_SIZE-(9*CHAR_SPACE_*scale)/2;
+    draw_text(renderer, "GAME OVER", x, 20+(BOARD_HEIGHT/2)*CELL_SIZE, color, scale);
+    draw_text(renderer, "PRESS ANY KEY TO RESTART", 20+(BOARD_WIDTH/2)*CELL_SIZE-(24*CHAR_SPACE_*2)/2, 60+(BOARD_HEIGHT/2)*CELL_SIZE, color, 2);
+    SDL_RenderPresent(renderer);
+}
+
+void render_start(SDL_Renderer* renderer){
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+
+    // 3. Render
+    render_board(renderer);
+    render_active_face(renderer);
+    render_UI(renderer);
+    Color color = {255,255,255};
+    int scale = 2;
+    int x = 20+(BOARD_WIDTH/2)*CELL_SIZE-(22*CHAR_SPACE_*scale)/2;
+    draw_text(renderer, "PRESS ANY KEY TO START", x, 20+(BOARD_HEIGHT/2)*CELL_SIZE, color, scale);
+    SDL_RenderPresent(renderer);
+}
+
+void render_paused(SDL_Renderer* renderer){
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+
+    // 3. Render
+    render_board(renderer);
+    render_active_face(renderer);
+    render_UI(renderer);
+    Color color = {255,255,255};
+    int scale = 4;
+    int x = 20+(BOARD_WIDTH/2)*CELL_SIZE-(6*CHAR_SPACE_*scale)/2;
+    draw_text(renderer, "PAUSED", x, 20+(BOARD_HEIGHT/2)*CELL_SIZE, color, scale);
+    SDL_RenderPresent(renderer);
+}
+
+int game_over(SDL_Renderer* renderer){
+    while (1){
+        render_game_over(renderer);
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            switch (event.type) {
+                case SDL_EVENT_KEY_DOWN:
+                    switch (event.key.key){
+                        case SDLK_SPACE:
+                            return 1;
+                            break;
+                        default:
+                            break;
+                    }
+                    break;
+            }
+        }
+    }
+}
+
+int start(SDL_Renderer* renderer){
+    for (int i=0; i<BOARD_HEIGHT; i++){
+        board[i] = 0;
+    }
+    free(active_face);
+    free(score_str);
+    score = 0;
+    score_str = intToStr(score);
+    while (1){
+        render_start(renderer);
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            switch (event.type) {
+                case SDL_EVENT_QUIT:
+                    return 0;
+                    break;
+
+                case SDL_EVENT_KEY_DOWN:
+                    return 1;
+                    break;
+            }
+        }
+
+        
+    }
+}
+
+
+int pause(SDL_Renderer* renderer){
+    while (1){
+        render_paused(renderer);
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            switch (event.type) {
+                case SDL_EVENT_QUIT:
+                    return 0;
+                    break;
+
+                case SDL_EVENT_KEY_DOWN:
+                    switch (event.key.key){
+                        case SDLK_SPACE:
+                            return 1;
+                            break;
+                        default:
+                            break;
+                    }
+                    break;
+            }
+        }
+    }
+}
+
+char* intToStr(int n){
+    char* str = NULL;
+    int len = 0;
+    int temp = n;
+    while (temp/10 != 0){
+        len++;
+        temp /= 10;
+    }
+    len++;
+    str = (char*)malloc(sizeof(char)*(len+1));
+    if (str == NULL){
+        printf("Failed to allocate memory\n");
+        return "\0";
+    }
+    str[len] = '\0';
+    while(len-1 >= 0){
+        int digit = n%10;
+        char c = digit+'0';
+        str[len-1] = c;
+        len--;
+        n /= 10;
+    }
+
+    return str;
+}
 
 void draw_text(SDL_Renderer* renderer, const char* string, int x, int y, Color cl, int scale) {
     SDL_SetRenderDrawColor(renderer, (Uint8)cl.r, (Uint8)cl.g, (Uint8)cl.b, 255);
@@ -110,13 +288,6 @@ void draw_text(SDL_Renderer* renderer, const char* string, int x, int y, Color c
             }
         }
     }
-}
-
-
-void init(){
-    faces = NULL;
-    total_faces = 0;
-    return;
 }
 
 static inline int highest_set_bit(uint8_t x) { // -1 if none
@@ -215,6 +386,7 @@ void rotate_clockwise(Face* face){
 
 
 void lock_face(){
+    
     for (int i=0;i<active_face->shape.max_height;i++){
         for (int j=0; j<active_face->shape.max_width; j++){
             if ((active_face->shape.pattern[i] >> j) & 1){
@@ -229,15 +401,24 @@ void lock_face(){
             for (int j=i; j>0; j--){
                 board[j] = board[j-1];
             }
+            score += 10;
+            score_str = intToStr(score);
         }
     }
-    print_board();
-    active_face = NULL;
+    //print_board();
+    free(active_face);
     spawn_tetrimony();
     return;
 }
 
 void spawn_tetrimony(){
+    for (int i=0; i<4; i++){
+        if (board[i] != 0){
+            g_state = STATE_GAME_OVER;
+            break;
+        }
+    }
+
     active_face = malloc(sizeof(Face));
     if (!active_face) {
         printf("Error: Failed to allocate memory\n");
@@ -248,8 +429,7 @@ void spawn_tetrimony(){
 }
 
 Shape choose_random_shape(){
-    printf("Choosing the shape...\n");
-    uint8_t shape_id = (uint8_t)(rand())%7 + 1;
+    uint8_t shape_id = (uint8_t)(rand())%10 + 1;
     Shape shape;
 
     switch (shape_id){
@@ -257,43 +437,51 @@ Shape choose_random_shape(){
             array_duplicate(&T_pattern, sizeof(T_pattern)/sizeof(T_pattern[0]), sizeof(T_pattern[0]), &shape.pattern);
             shape.max_width = 3;
             shape.max_height = 2;
-            printf("Chose T\n");
             break;
         case 2:
             array_duplicate(&L_pattern, sizeof(L_pattern)/sizeof(L_pattern[0]), sizeof(L_pattern[0]), &shape.pattern);
             shape.max_width = 3;
             shape.max_height = 2;
-            printf("Chose L\n");
             break;
         case 3:
             array_duplicate(&J_pattern, sizeof(J_pattern)/sizeof(J_pattern[0]), sizeof(J_pattern[0]), &shape.pattern);
-            printf("Chose J\n");
             shape.max_width = 3;
             shape.max_height = 2;
             break;
         case 4:
             array_duplicate(&Z_pattern, sizeof(Z_pattern)/sizeof(Z_pattern[0]), sizeof(Z_pattern[0]), &shape.pattern);
-            printf("Chose I\n");
             shape.max_width = 4;
             shape.max_height = 2;
             break;
         case 5:
             array_duplicate(&reverse_Z_pattern, sizeof(reverse_Z_pattern)/sizeof(reverse_Z_pattern[0]), sizeof(reverse_Z_pattern[0]), &shape.pattern);
-            printf("Chose I\n");
             shape.max_width = 4;
             shape.max_height = 2;
             break;
         case 6:
             array_duplicate(&square_pattern, sizeof(square_pattern)/sizeof(square_pattern[0]), sizeof(square_pattern[0]), &shape.pattern);
-            printf("Chose I\n");
             shape.max_width = 2;
             shape.max_height = 2;
             break;
         case 7:
             array_duplicate(&I_pattern, sizeof(I_pattern)/sizeof(I_pattern[0]), sizeof(I_pattern[0]), &shape.pattern);
-            printf("Chose I\n");
             shape.max_width = 1;
             shape.max_height = 4;
+            break;
+        case 8:
+            array_duplicate(&dot_pattern, sizeof(dot_pattern)/sizeof(dot_pattern[0]), sizeof(dot_pattern[0]), &shape.pattern);
+            shape.max_width = 1;
+            shape.max_height = 1;
+            break;
+        case 9:
+            array_duplicate(&mini_L_pattern, sizeof(mini_L_pattern)/sizeof(mini_L_pattern[0]), sizeof(mini_L_pattern[0]), &shape.pattern);
+            shape.max_width = 2;
+            shape.max_height = 2;
+            break;
+        case 10:
+            array_duplicate(&mini_J_pattern, sizeof(mini_J_pattern)/sizeof(mini_J_pattern[0]), sizeof(mini_J_pattern[0]), &shape.pattern);
+            shape.max_width = 2;
+            shape.max_height = 2;
             break;
         default:
             printf("shape id does not exist\n");
@@ -301,7 +489,6 @@ Shape choose_random_shape(){
             break;
     }
 
-    printf("Chosing colors...\n");
     shape.color.r = 50 + rand()%206;
     shape.color.g = 50 + rand()%206;
     shape.color.b = 50 + rand()%206;
@@ -310,16 +497,13 @@ Shape choose_random_shape(){
 }
 
 Face make_face(){
-    printf("Making the face...\n");
     Face face;
     face.shape = choose_random_shape();
-    printf("Made the shape\n");
 
     return face;
 }
 
 void spawn_face(Face* face){
-    printf("Spawning face...\n");
     /*
         shape     board    board
         0b1110 || 0b0000 = 0b1110 : Good
@@ -386,12 +570,17 @@ void render_active_face(SDL_Renderer* renderer){
     }
 }
 
-void render_text(SDL_Renderer* renderer){
+void render_UI(SDL_Renderer* renderer){
     Color color = {255,255,94};
     draw_text(renderer, "TETRIS", 40+BOARD_WIDTH*CELL_SIZE, 20, color, 5);
     color.r = 255;
     color.g = 255;
     color.b = 255;
+    draw_text(renderer, get_current_time(), 20, BOARD_HEIGHT*CELL_SIZE+24, color, 2);
+    draw_text(renderer, "SCORE", BOARD_WIDTH*CELL_SIZE+120-(5*CHAR_SPACE_*2)/2, (BOARD_HEIGHT*CELL_SIZE/2)-CHAR_HEIGHT_*2, color, 2);
+    draw_text(renderer, score_str, BOARD_WIDTH*CELL_SIZE+40, (BOARD_HEIGHT*CELL_SIZE/2)+CHAR_HEIGHT_*2, color, 2);
+    draw_text(renderer, "C: ROTATE", BOARD_WIDTH*CELL_SIZE+40, (BOARD_HEIGHT*CELL_SIZE/2)+CHAR_HEIGHT_*10*2, color, 2);
+    draw_text(renderer, "ARROW KEYS: MOVE", BOARD_WIDTH*CELL_SIZE+40, (BOARD_HEIGHT*CELL_SIZE/2)+CHAR_HEIGHT_*12*2, color, 2);
     draw_text(renderer, "MADE BY:", 40+BOARD_WIDTH*CELL_SIZE, BOARD_HEIGHT*CELL_SIZE-20, color, 2);
     color.r = 144;
     color.g = 165;
@@ -460,6 +649,35 @@ int loop(SDL_Renderer* renderer) {
 
     while (!quit) {
         // 1. Handle input
+        switch (g_state){
+            case STATE_GAME_OVER:
+                if (game_over(renderer)){
+                    g_state = STATE_START;
+                    if (start(renderer)){
+                        g_state = STATE_PLAYING;
+                        fall_delay = 500;
+                        spawn_tetrimony();
+                    }else{
+                        quit = 1;
+                    }
+                }
+                break;
+            case STATE_START:
+                if (start(renderer)){
+                    g_state = STATE_PLAYING;
+                    spawn_tetrimony();
+                }else{
+                    quit = 1;
+                }
+                break;
+            case STATE_PAUSED:
+                if (pause(renderer)){
+                    g_state = STATE_PLAYING;
+                }else{
+                    quit = 1;
+                }
+                break;
+        }
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
@@ -468,30 +686,36 @@ int loop(SDL_Renderer* renderer) {
                     break;
 
                 case SDL_EVENT_KEY_DOWN:
-                    switch (event.key.key) {
-                        case SDLK_ESCAPE:
-                            quit = 1;
-                            break;
-                        case SDLK_SPACE:
-                            if (!active_face) spawn_tetrimony();
-                            break;
-                        case SDLK_RIGHT:
-                            if (active_face && can_move(0, 1))
-                                active_face->col++;
-                            break;
-                        case SDLK_LEFT:
-                            if (active_face && can_move(0, -1))
-                                active_face->col--;
-                            break;
-                        case SDLK_DOWN:
-                            if (active_face && can_move(1, 0))
-                                active_face->row++;
-                            break;
-                        case SDLK_C:
-                            if (active_face){
-                                rotate_clockwise(active_face);
+                    switch (g_state){
+                        case STATE_PLAYING:
+                            switch (event.key.key) {
+                                case SDLK_ESCAPE:
+                                    quit = 1;
+                                    break;
+                                case SDLK_SPACE:
+                                    g_state = STATE_PAUSED;
+                                    break;
+                                case SDLK_RIGHT:
+                                    if (active_face && can_move(0, 1))
+                                        active_face->col++;
+                                    break;
+                                case SDLK_LEFT:
+                                    if (active_face && can_move(0, -1))
+                                        active_face->col--;
+                                    break;
+                                case SDLK_DOWN:
+                                    if (active_face && can_move(1, 0))
+                                        active_face->row++;
+                                    break;
+                                case SDLK_C:
+                                    if (active_face){
+                                        rotate_clockwise(active_face);
+                                    }
                             }
+                            break;
                     }
+                    break;
+                default:
                     break;
             }
         }
@@ -503,6 +727,9 @@ int loop(SDL_Renderer* renderer) {
                 active_face->row++;
             } else if (bottom_colliding()) {
                 lock_face();
+                if (fall_delay > 50){
+                    fall_delay -= 5;
+                }
             }
             last_fall = now;
         }
@@ -513,7 +740,7 @@ int loop(SDL_Renderer* renderer) {
         // 3. Render
         render_board(renderer);
         render_active_face(renderer);
-        render_text(renderer);
+        render_UI(renderer);
 
         SDL_RenderPresent(renderer);
 
@@ -525,7 +752,24 @@ int loop(SDL_Renderer* renderer) {
 }
 
 
+
+
+char* get_current_time(){
+    time_t current_time;
+    current_time = time(NULL);
+    struct tm *cur_time_ptr = localtime(&current_time);
+    char* str = asctime(cur_time_ptr);
+    int size = strlen(str);
+    for (int i=0; i<size; i++){
+        if (str[i] >= 97 && str[i] <= 122){
+            str[i] -= 32;
+        }
+    }
+    return str;
+}
+
 int main(int argc, char* argv[]){
+    printf("Made by:\n\tDragonDev (Mohamed Reda Hmichi)\n\nLibraries used:\n\tSDL3 - rendering & input handling\n\tminiaudio - audio playback\n\nIcon and music are copyrighted materials from Tetris 99 and Tetris (Original) respectively\nand belong to their respective owners.\nUsed here for educational and non-commercial purposes only.\n\n2025 DragonDev. All rights reserved.");
     SDL_Window *window;
     int done = 0;
 
@@ -538,6 +782,15 @@ int main(int argc, char* argv[]){
         return 1;
     }
 
+    SDL_Surface* icon = SDL_LoadBMP("res/icon.bmp");  // Must be BMP or load with SDL_image
+    if (icon) {
+        SDL_SetWindowIcon(window, icon);
+        SDL_DestroySurface(icon); // free after setting
+    } else {
+        printf("Failed to load icon: %s\n", SDL_GetError());
+    }
+
+
     SDL_Renderer *renderer = SDL_CreateRenderer(window, NULL);
 
     if (renderer == NULL){
@@ -545,7 +798,18 @@ int main(int argc, char* argv[]){
         return 1;
     }
 
-    spawn_tetrimony();
+    ma_result result;
+    ma_engine engine;
+
+    result = ma_engine_init(NULL, &engine);
+    ma_sound sound;
+    if (ma_sound_init_from_file(&engine, "res/Tetris.mp3", MA_SOUND_FLAG_LOOPING, NULL, NULL, &sound) != MA_SUCCESS) {
+        printf("Failed to load sound\n");
+        return -1;
+    }
+
+    // Play it
+    ma_sound_start(&sound);
 
     while (!done){
         
@@ -553,10 +817,11 @@ int main(int argc, char* argv[]){
         
     }
 
-    free(faces);
     
     SDL_DestroyWindow(window);
     SDL_Quit();
+    ma_sound_uninit(&sound);
+    ma_engine_uninit(&engine);
 
     return 0;
 }
