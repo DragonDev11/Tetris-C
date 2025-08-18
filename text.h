@@ -3,6 +3,10 @@
 
 #include <stdint.h>
 
+#define CHAR_SPACE_ 6
+#define CHAR_HEIGHT_ 7
+#define CHAR_WIDTH_ 5
+
 // 5x7 Font (each row is 5 bits wide, stored in uint8_t)
 typedef uint8_t Glyph[7];
 
@@ -56,6 +60,8 @@ static Glyph font_dash       = {0b00000,0b00000,0b00000,0b11111,0b00000,0b00000,
 static Glyph font_plus       = {0b00000,0b00100,0b00100,0b11111,0b00100,0b00100,0b00000}; // +
 static Glyph font_star       = {0b00100,0b10101,0b01110,0b11111,0b01110,0b10101,0b00100}; // *
 static Glyph font_slash      = {0b00001,0b00010,0b00100,0b01000,0b10000,0b00000,0b00000}; // /
-static Glyph font_backslash  = {0b10000,0b01000,0b00100,0b00010,0b00001,0b00000,0b00000}; // \
+static Glyph font_backslash  = {0b10000,0b01000,0b00100,0b00010,0b00001,0b00000,0b00000}; // `\`
+static Glyph font_space      = {0b00000,0b00000,0b00000,0b00000,0b00000,0b00000,0b00000}; //  
+
 
 #endif

@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
 #include "array.h"
 #include <SDL3/SDL.h>
 #include "classes.h"
+#include "text.h"
 
 // functions
 void init();
@@ -34,6 +36,81 @@ int total_faces;
 
 Face* active_face;
 
+uint8_t* font_table[128] = {
+    ['A'] = font_A,
+    ['B'] = font_B,
+    ['C'] = font_C,
+    ['D'] = font_D,
+    ['E'] = font_E,
+    ['F'] = font_F,
+    ['G'] = font_G,
+    ['H'] = font_H,
+    ['I'] = font_I,
+    ['J'] = font_J,
+    ['K'] = font_K,
+    ['L'] = font_L,
+    ['M'] = font_M,
+    ['N'] = font_N,
+    ['O'] = font_O,
+    ['P'] = font_P,
+    ['Q'] = font_Q,
+    ['R'] = font_R,
+    ['S'] = font_S,
+    ['T'] = font_T,
+    ['U'] = font_U,
+    ['V'] = font_V,
+    ['W'] = font_W,
+    ['X'] = font_X,
+    ['Y'] = font_Y,
+    ['Z'] = font_Z,
+
+    ['0'] = font_0,
+    ['1'] = font_1,
+    ['2'] = font_2,
+    ['3'] = font_3,
+    ['4'] = font_4,
+    ['5'] = font_5,
+    ['6'] = font_6,
+    ['7'] = font_7,
+    ['8'] = font_8,
+    ['9'] = font_9,
+
+    ['!'] = font_exclamation,
+    ['?'] = font_question,
+    ['.'] = font_period,
+    [','] = font_comma,
+    ['-'] = font_dash,
+    ['+'] = font_plus,
+    ['*'] = font_star,
+    ['/'] = font_slash,
+    [':'] = font_colon,
+    [' '] = font_space
+};
+
+void draw_text(SDL_Renderer* renderer, const char* string, int x, int y, Color cl, int scale) {
+    SDL_SetRenderDrawColor(renderer, (Uint8)cl.r, (Uint8)cl.g, (Uint8)cl.b, 255);
+
+    int len = strlen(string);
+    for (int i = 0; i < len; i++) {
+        char ch = string[i];
+
+        // Get bitmap for this character
+        uint8_t* font_char = font_table[(int)ch];
+        if (!font_char) continue; // skip unsupported characters
+
+        for (int r = 0; r < CHAR_HEIGHT_; r++) {
+            for (int c = 0; c < CHAR_WIDTH_; c++) {
+                if ((font_char[r] >> (CHAR_WIDTH_ - 1 - c)) & 1) {
+                    int xpos = x + c*scale + i*scale * CHAR_SPACE_;
+                    int ypos = y + r*scale;
+
+                    SDL_FRect rect = {xpos, ypos, scale, scale};
+                    SDL_RenderFillRect(renderer, &rect);
+                }
+            }
+        }
+    }
+}
 
 
 void init(){
@@ -225,9 +302,9 @@ Shape choose_random_shape(){
     }
 
     printf("Chosing colors...\n");
-    shape.color.r = rand()%256;
-    shape.color.g = rand()%256;
-    shape.color.b = rand()%256;
+    shape.color.r = 50 + rand()%206;
+    shape.color.g = 50 + rand()%206;
+    shape.color.b = 50 + rand()%206;
 
     return shape;
 }
@@ -307,6 +384,19 @@ void render_active_face(SDL_Renderer* renderer){
             }
         }
     }
+}
+
+void render_text(SDL_Renderer* renderer){
+    Color color = {255,255,94};
+    draw_text(renderer, "TETRIS", 40+BOARD_WIDTH*CELL_SIZE, 20, color, 5);
+    color.r = 255;
+    color.g = 255;
+    color.b = 255;
+    draw_text(renderer, "MADE BY:", 40+BOARD_WIDTH*CELL_SIZE, BOARD_HEIGHT*CELL_SIZE-20, color, 2);
+    color.r = 144;
+    color.g = 165;
+    color.b = 255;
+    draw_text(renderer, "DRAGONDEV", 40+BOARD_WIDTH*CELL_SIZE, BOARD_HEIGHT*CELL_SIZE, color, 2);
 }
 
 int can_move(int drow, int dcol) {
@@ -423,6 +513,7 @@ int loop(SDL_Renderer* renderer) {
         // 3. Render
         render_board(renderer);
         render_active_face(renderer);
+        render_text(renderer);
 
         SDL_RenderPresent(renderer);
 
