@@ -769,7 +769,7 @@ char* get_current_time(){
 }
 
 int main(int argc, char* argv[]){
-    printf("Made by:\n\tDragonDev (Mohamed Reda Hmichi)\n\nLibraries used:\n\tSDL3 - rendering & input handling\n\tminiaudio - audio playback\n\nIcon and music are copyrighted materials from Tetris 99 and Tetris (Original) respectively\nand belong to their respective owners.\nUsed here for educational and non-commercial purposes only.\n\n2025 DragonDev. All rights reserved.");
+    printf("Made by:\n\tDragonDev\n\nLibraries used:\n\tSDL3 - rendering & input handling\n\tminiaudio - audio playback\n\nIcon and music are copyrighted materials from Tetris 99 and Tetris (Original) respectively\nand belong to their respective owners.\nUsed here for educational and non-commercial purposes only.\n\n2025 DragonDev. All rights reserved.");
     SDL_Window *window;
     int done = 0;
 
