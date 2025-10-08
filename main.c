@@ -34,7 +34,7 @@ void render_UI(SDL_Renderer* renderer);
 int can_move(int drow, int dcol);
 int bottom_colliding();
 int start(SDL_Renderer* renderer);
-int pause(SDL_Renderer* renderer);
+int pause_game(SDL_Renderer* renderer);
 char* get_current_time();
 char* intToStr(int n);
 void draw_text(SDL_Renderer* renderer, const char* string, int x, int y, Color cl, int scale);
@@ -210,12 +210,12 @@ int start(SDL_Renderer* renderer){
             }
         }
 
-        
+
     }
 }
 
 
-int pause(SDL_Renderer* renderer){
+int pause_game(SDL_Renderer* renderer){
     while (1){
         render_paused(renderer);
         SDL_Event event;
@@ -386,7 +386,7 @@ void rotate_clockwise(Face* face){
 
 
 void lock_face(){
-    
+
     for (int i=0;i<active_face->shape.max_height;i++){
         for (int j=0; j<active_face->shape.max_width; j++){
             if ((active_face->shape.pattern[i] >> j) & 1){
@@ -395,7 +395,7 @@ void lock_face(){
             }
         }
     }
-    
+
     for (int i=0; i<BOARD_HEIGHT; i++){
         if (board[i] == MAX16_INT){
             for (int j=i; j>0; j--){
@@ -508,7 +508,7 @@ void spawn_face(Face* face){
         shape     board    board
         0b1110 || 0b0000 = 0b1110 : Good
         0b0100 || 0b0100 = 0b0100 : Bad
-        0b0000 || 0b0000 = 0b0000 
+        0b0000 || 0b0000 = 0b0000
         0b0000 || 0b0000 = 0b0000
 
         0b1010 >> 0 = 0b1010 & 0b0001 = 0 // value of the first bit haha
@@ -526,7 +526,7 @@ void spawn_face(Face* face){
         }
         //board[i] = board[i] | face->shape.pattern[i-face->row];
     }
-    
+
 
     //active_face = face;
     return;
@@ -536,7 +536,7 @@ void render_board(SDL_Renderer* renderer){
 
     Color c = {100,100,100};
     SDL_SetRenderDrawColor(renderer, (Uint8)c.r, (Uint8)c.g, (Uint8)c.b, 255);
-    
+
     for (int j=0; j<BOARD_HEIGHT; j++){
         for (int k=0; k<BOARD_WIDTH; k++){
             if ((board[j] >> k) & 1) {
@@ -671,7 +671,7 @@ int loop(SDL_Renderer* renderer) {
                 }
                 break;
             case STATE_PAUSED:
-                if (pause(renderer)){
+                if (pause_game(renderer)){
                     g_state = STATE_PLAYING;
                 }else{
                     quit = 1;
@@ -812,12 +812,12 @@ int main(int argc, char* argv[]){
     ma_sound_start(&sound);
 
     while (!done){
-        
+
         if (!loop(renderer)) done = 1;
-        
+
     }
 
-    
+
     SDL_DestroyWindow(window);
     SDL_Quit();
     ma_sound_uninit(&sound);
